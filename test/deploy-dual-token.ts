@@ -5,7 +5,7 @@ async function main() {
 
     console.log("Deploying contracts with the account:", deployer.address);
 
-    // 取得 DualToken 合約工廠
+    // 取得 DualToken 合約
     const DualToken = await ethers.getContractFactory("DualToken");
     
     const initialSupplyToken1 = ethers.parseUnits("5000000", 18);

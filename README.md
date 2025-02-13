@@ -1,3 +1,7 @@
+# Install the Uniswap V3 Core package
+
+```npm install @uniswap/v3-core```
+
 # 創建兩種 ERC20 代幣 contracts\DualToken.sol
 
 編譯Solidity 智能合約
