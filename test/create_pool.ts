@@ -22,9 +22,8 @@ async function main() {
 
     // 創建 Pool
     try {
-        const gasEstimate = await uniswapV3Factory.createPool.estimateGas(token1Address, token2Address, fee);
         const tx = await uniswapV3Factory.createPool(token1Address, token2Address, fee, {
-            gasLimit: gasEstimate.add(ethers.BigNumber.from("100000"))  // 在估算的基础上加一些缓冲
+            gasLimit: 30000000
         });
         await tx.wait();
         const poolAddress = await uniswapV3Factory.getPool(token1Address, token2Address, fee);
