@@ -1,6 +1,7 @@
-# Install the Uniswap V3 Core package
+# Install the Uniswap/ethers/openzeppelin package
 
-```npm install @uniswap/v3-core```
+```npm install @uniswap/sdk-core @uniswap/v3-sdk ethers jsbi @openzeppelin
+```
 
 # 創建兩種 ERC20 代幣 contracts\DualToken.sol
 
