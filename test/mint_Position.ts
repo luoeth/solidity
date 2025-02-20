@@ -1,6 +1,7 @@
-import { BigintIsh, Percent, Token } from '@uniswap/sdk-core';
+import { Percent, Token } from '@uniswap/sdk-core';
+
 import { MintOptions, nearestUsableTick, NonfungiblePositionManager, Pool, Position } from '@uniswap/v3-sdk';
-import JSBI from 'jsbi';
+// import JSBI from 'jsbi';
 // import { ethers, BigNumberish } from 'ethers';
 import { computePoolAddress } from '@uniswap/v3-sdk';
 
@@ -9,7 +10,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 
-import { parseUnits, JsonRpcProvider, Wallet, BigNumber, Contract } from "ethers";
+import { parseUnits, JsonRpcProvider, Wallet, BigNumberish, Contract } from "ethers";
 
 
 
@@ -52,7 +53,7 @@ async function approveTokens() {
 /**
  * 初始化池並添加流動性
  */
-async function initializeAndAddLiquidity() {
+async function mint_position() {
   const currentPoolAddress = computePoolAddress({
     factoryAddress: POOL_FACTORY_CONTRACT_ADDRESS,
     tokenA: token0,
@@ -79,13 +80,13 @@ async function initializeAndAddLiquidity() {
     pool: configuredPool,
     tickLower: nearestUsableTick(configuredPool.tickCurrent, configuredPool.tickSpacing) - configuredPool.tickSpacing * 2,
     tickUpper: nearestUsableTick(configuredPool.tickCurrent, configuredPool.tickSpacing) + configuredPool.tickSpacing * 2,
-    amount0: JSBI.BigInt(TOKEN_AMOUNT_TO_APPROVE_FOR_TRANSFER.toString()),
-    amount1: JSBI.BigInt(TOKEN_AMOUNT_TO_APPROVE_FOR_TRANSFER.toString()),
+    amount0: TOKEN_AMOUNT_TO_APPROVE_FOR_TRANSFER.toString(),
+    amount1: TOKEN_AMOUNT_TO_APPROVE_FOR_TRANSFER.toString(),
     useFullPrecision: true,
   });
 
   const mintOptions: MintOptions = {
-    recipient: deployer.address,
+    recipient: process.env.ADDRESS!,
     deadline: Math.floor(Date.now() / 1000) + 60 * 20,
     slippageTolerance: new Percent(50, 10_000),
   };
@@ -96,7 +97,7 @@ async function initializeAndAddLiquidity() {
     data: calldata,
     to: NONFUNGIBLE_POSITION_MANAGER_CONTRACT_ADDRESS,
     value: value,
-    from: deployer.address,
+    from: process.env.ADDRESS!,
     maxFeePerGas: MAX_FEE_PER_GAS,
     maxPriorityFeePerGas: MAX_PRIORITY_FEE_PER_GAS,
   });
@@ -112,7 +113,7 @@ async function initializeAndAddLiquidity() {
 async function main() {
   try {
     await approveTokens();
-    await initializeAndAddLiquidity();
+    await mint_position();
   } catch (error) {
     console.error('Error occurred:', error);
   }
