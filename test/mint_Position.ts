@@ -1,7 +1,7 @@
 import { Percent, Token } from '@uniswap/sdk-core';
 
 import { MintOptions, nearestUsableTick, NonfungiblePositionManager, Pool, Position } from '@uniswap/v3-sdk';
-// import JSBI from 'jsbi';
+import JSBI from 'jsbi';
 // import { ethers, BigNumberish } from 'ethers';
 import { computePoolAddress } from '@uniswap/v3-sdk';
 
@@ -66,15 +66,41 @@ async function mint_position() {
   console.log('Pool Contract Loaded');
 
   const [liquidity, slot0] = await Promise.all([poolContract.liquidity(), poolContract.slot0()]);
-  const sqrtPriceX96_price = slot0.sqrtPriceX96;
-  console.log('Sqrt PriceX96:', sqrtPriceX96_price.toString());
+  
   
   if (!slot0.unlocked) {
-    await poolContract.initialize('79228162514264337593543950336'); // 示例平方根價格
+    const sqrtPriceX96 = BigInt(1 * (2 ** 96)); // 1:1 的價格比率
+    await poolContract.initialize(sqrtPriceX96.toString());
     console.log('池初始化完成');
   }
 
-  const configuredPool = new Pool(token0, token1, poolFee, sqrtPriceX96_price.toString(), liquidity.toString(), slot0.tick);
+  const tickCurrent = Number(slot0[1]); // 確保 tickCurrent 是 number
+  const sqrtPriceX96_price = slot0[0].toString(); // 確保是 string
+  // const liquidityJSBI = JSBI.BigInt(liquidity); // 確保是 JSBI
+  const liquidityStr = liquidity.toString(); // 確保是 string
+
+  console.log("tickCurrent:", tickCurrent);
+  console.log("Sqrt PriceX96:", sqrtPriceX96_price);
+  console.log("Liquidity:", liquidityStr);
+
+  const configuredPool = new Pool(
+    token0,
+    token1,
+    poolFee,
+    sqrtPriceX96_price, // 這個是 string
+    liquidityStr,       // 這個是 string
+    tickCurrent         // 這個是 number
+  );
+  console.log("configuredPool:", configuredPool);
+  exit
+
+  // const sqrtPriceX96_price = slot0.sqrtPriceX96;
+  // const tickCurrent = JSBI.toNumber(slot0[1]); // slot0[1] 是 tickCurrent
+  // console.log('Sqrt PriceX96:', sqrtPriceX96_price.toString());
+  // console.log("tickCurrent:", tickCurrent);
+  // // const tickCurrent = Number(slot0[1]); // slot0[1] 是 tickCurrent
+
+  // const configuredPool = new Pool(token0, token1, poolFee, sqrtPriceX96_price.toString(), liquidity.toString(), tickCurrent );
 
   const position = Position.fromAmounts({
     pool: configuredPool,
@@ -112,7 +138,7 @@ async function mint_position() {
  */
 async function main() {
   try {
-    await approveTokens();
+    // await approveTokens();
     await mint_position();
   } catch (error) {
     console.error('Error occurred:', error);
