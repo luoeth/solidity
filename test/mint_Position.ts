@@ -66,7 +66,7 @@ async function mint_position() {
   console.log('Pool Contract Loaded');
 
   const [liquidity, slot0] = await Promise.all([poolContract.liquidity(), poolContract.slot0()]);
-  
+
   
   if (!slot0.unlocked) {
     const sqrtPriceX96 = BigInt(1 * (2 ** 96)); // 1:1 的價格比率
@@ -74,33 +74,16 @@ async function mint_position() {
     console.log('池初始化完成');
   }
 
-  const tickCurrent = Number(slot0[1]); // 確保 tickCurrent 是 number
-  const sqrtPriceX96_price = slot0[0].toString(); // 確保是 string
-  // const liquidityJSBI = JSBI.BigInt(liquidity); // 確保是 JSBI
-  const liquidityStr = liquidity.toString(); // 確保是 string
-
-  console.log("tickCurrent:", tickCurrent);
-  console.log("Sqrt PriceX96:", sqrtPriceX96_price);
-  console.log("Liquidity:", liquidityStr);
 
   const configuredPool = new Pool(
     token0,
     token1,
     poolFee,
-    sqrtPriceX96_price, // 這個是 string
-    liquidityStr,       // 這個是 string
-    tickCurrent         // 這個是 number
+    slot0.sqrtPriceX96.toString(), 
+    liquidity.toString(),     
+    Number(slot0.tick)      
   );
-  console.log("configuredPool:", configuredPool);
-  exit
-
-  // const sqrtPriceX96_price = slot0.sqrtPriceX96;
-  // const tickCurrent = JSBI.toNumber(slot0[1]); // slot0[1] 是 tickCurrent
-  // console.log('Sqrt PriceX96:', sqrtPriceX96_price.toString());
-  // console.log("tickCurrent:", tickCurrent);
-  // // const tickCurrent = Number(slot0[1]); // slot0[1] 是 tickCurrent
-
-  // const configuredPool = new Pool(token0, token1, poolFee, sqrtPriceX96_price.toString(), liquidity.toString(), tickCurrent );
+  
 
   const position = Position.fromAmounts({
     pool: configuredPool,
@@ -111,13 +94,18 @@ async function mint_position() {
     useFullPrecision: true,
   });
 
+
   const mintOptions: MintOptions = {
     recipient: process.env.ADDRESS!,
     deadline: Math.floor(Date.now() / 1000) + 60 * 20,
     slippageTolerance: new Percent(50, 10_000),
   };
+  
 
   const { calldata, value } = NonfungiblePositionManager.addCallParameters(position, mintOptions);
+  console.log('calldata',calldata);
+  console.log('value',value);
+  exit
 
   const txRes = await signer.sendTransaction({
     data: calldata,
