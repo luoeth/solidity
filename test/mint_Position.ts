@@ -1,11 +1,6 @@
-import { Percent, Token } from '@uniswap/sdk-core';
-
-import { MintOptions, nearestUsableTick, NonfungiblePositionManager, Pool, Position } from '@uniswap/v3-sdk';
+import { Percent, Token, BigintIsh } from '@uniswap/sdk-core';
+import { MintOptions, nearestUsableTick, NonfungiblePositionManager, Pool, Position, computePoolAddress } from '@uniswap/v3-sdk';
 import JSBI from 'jsbi';
-// import { ethers, BigNumberish } from 'ethers';
-import { computePoolAddress } from '@uniswap/v3-sdk';
-
-// import deployer from '../.secret';
 import * as dotenv from "dotenv";
 dotenv.config();
 
@@ -63,7 +58,6 @@ async function mint_position() {
   console.log('Pool Address:', currentPoolAddress);
 
   const poolContract = new Contract(currentPoolAddress, require('@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json').abi, signer);
-  console.log('Pool Contract Loaded');
 
   const [liquidity, slot0] = await Promise.all([poolContract.liquidity(), poolContract.slot0()]);
 
@@ -83,14 +77,18 @@ async function mint_position() {
     liquidity.toString(),     
     Number(slot0.tick)      
   );
+
+
+const amount0: BigintIsh = JSBI.BigInt(parseUnits("3000", 18).toString());
+const amount1: BigintIsh = JSBI.BigInt(parseUnits("3000", 18).toString());
   
 
   const position = Position.fromAmounts({
     pool: configuredPool,
     tickLower: nearestUsableTick(configuredPool.tickCurrent, configuredPool.tickSpacing) - configuredPool.tickSpacing * 2,
     tickUpper: nearestUsableTick(configuredPool.tickCurrent, configuredPool.tickSpacing) + configuredPool.tickSpacing * 2,
-    amount0: TOKEN_AMOUNT_TO_APPROVE_FOR_TRANSFER.toString(),
-    amount1: TOKEN_AMOUNT_TO_APPROVE_FOR_TRANSFER.toString(),
+    amount0: amount0,
+    amount1: amount1,
     useFullPrecision: true,
   });
 
@@ -100,6 +98,8 @@ async function mint_position() {
     deadline: Math.floor(Date.now() / 1000) + 60 * 20,
     slippageTolerance: new Percent(50, 10_000),
   };
+  console.log('mintOptions',mintOptions);
+
   
 
   const { calldata, value } = NonfungiblePositionManager.addCallParameters(position, mintOptions);
