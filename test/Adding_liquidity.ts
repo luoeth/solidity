@@ -1,4 +1,4 @@
-import { BigintIsh, Percent, SUPPORTED_CHAINS, Token, ChainId  } from '@uniswap/sdk-core'
+import { BigintIsh, Percent, SUPPORTED_CHAINS, Token, ChainId, CurrencyAmount  } from '@uniswap/sdk-core'
 import { MintOptions, nearestUsableTick, NonfungiblePositionManager, Pool, Position, computePoolAddress, FeeAmount } from '@uniswap/v3-sdk'
 import JSBI from 'jsbi'
 import { parseUnits, JsonRpcProvider, Wallet, BigNumberish, Contract, ethers } from "ethers";
@@ -23,14 +23,97 @@ const POOL_FACTORY_CONTRACT_ADDRESS ='0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24
 const token0Address = "0x788EFfd91D0d6323d185233A2623DF6282cB409F";
 const token1Address = "0x4084aA276Cf072C945A5a9803e1395f5B1098D0f";
 
-async function getTokenTransferApproval(address: string, amount: BigNumberish) {
-    const tokenContract = new ethers.Contract(
-        address,
-        ERC20_ABI,
-        signer
+// async function getTokenTransferApproval(address: string, amount: BigNumberish) {
+//     const tokenContract = new ethers.Contract(
+//         address,
+//         ERC20_ABI,
+//         signer
+//     )
+//     return tokenContract.approve(
+//         NONFUNGIBLE_POSITION_MANAGER_CONTRACT_ADDRESS,
+//         amount
+//     )
+//   }
+
+
+//   async function approveTokens(){
+//     const token0Approval = await getTokenTransferApproval(
+//       token0Address,
+//       parseUnits("500000000", 18)
+//     )
+//     console.log("Approving token1...");
+//     await token0Approval.wait();
+    
+//   const token1Approval = await getTokenTransferApproval(
+//       token1Address,
+//       parseUnits("500000000", 18)
+//     )
+//     console.log("Approving token2...");
+//     await token1Approval.wait();
+//     console.log("Approve token DONE");
+//   }
+
+
+
+enum TransactionState {
+    Failed = 'Failed',
+    New = 'New',
+    Rejected = 'Rejected',
+    Sending = 'Sending',
+    Sent = 'Sent',
+  }
+
+
+async function addLiquidity(positionId: number): Promise<TransactionState> {
+    const address = process.env.ADDRESS!
+    // const provider = getProvider()
+    // if (!address || !provider) {
+    //   return TransactionState.Failed
+    // }
+  
+    const positionToIncreaseBy = await await constructPosition(
+      CurrencyAmount.fromRawAmount(
+        CurrentConfig.tokens.token0,
+        fromReadableAmount(
+          (CurrentConfig.tokens.token0Amount *
+            CurrentConfig.tokens.fractionToAdd) /
+            100,
+          CurrentConfig.tokens.token0.decimals
+        )
+      ),
+      CurrencyAmount.fromRawAmount(
+        CurrentConfig.tokens.token1,
+        fromReadableAmount(
+          (CurrentConfig.tokens.token1Amount *
+            CurrentConfig.tokens.fractionToAdd) /
+            100,
+          CurrentConfig.tokens.token1.decimals
+        )
+      )
     )
-    return tokenContract.approve(
-        NONFUNGIBLE_POSITION_MANAGER_CONTRACT_ADDRESS,
-        amount
+  
+    const addLiquidityOptions: AddLiquidityOptions = {
+      deadline: Math.floor(Date.now() / 1000) + 60 * 20,
+      slippageTolerance: new Percent(50, 10_000),
+      tokenId: positionId,
+    }
+  
+    // get calldata for increasing a position
+    const { calldata, value } = NonfungiblePositionManager.addCallParameters(
+      positionToIncreaseBy,
+      addLiquidityOptions
     )
+  
+    // build transaction
+    const transaction = {
+      data: calldata,
+      to: NONFUNGIBLE_POSITION_MANAGER_CONTRACT_ADDRESS,
+      value: value,
+      from: address,
+      maxFeePerGas: MAX_FEE_PER_GAS,
+      maxPriorityFeePerGas: MAX_PRIORITY_FEE_PER_GAS,
+    }
+  
+    await sendTransaction(transaction)
+    return TransactionState.Sent
   }
