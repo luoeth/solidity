@@ -1,8 +1,10 @@
-import deployer from '../.secret';
-import { BigNumber, ethers } from 'ethers';
+// import deployer from '../.secret';
+import { BigNumberish, ethers, JsonRpcProvider, Wallet, parseUnits } from 'ethers';
 import { Percent, CurrencyAmount, Token } from '@uniswap/sdk-core';
 import { Pool, Position, nearestUsableTick, NonfungiblePositionManager, AddLiquidityOptions, computePoolAddress } from '@uniswap/v3-sdk';
 import JSBI from 'jsbi';
+import * as dotenv from "dotenv";
+dotenv.config();
 
 // 常量定義
 const POOL_FEE = 500;
@@ -14,7 +16,7 @@ const MAX_FEE_PER_GAS = '300000';
 const MAX_PRIORITY_FEE_PER_GAS = '300000';
 
 // ABI 定義
-const NONFUNGIBLE_POSITION_MANAGER_ABI = [/* ... ABI content ... */];
+const NONFUNGIBLE_POSITION_MANAGER_ABI = require('@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json').abi;
 const ERC20_ABI = require('@openzeppelin/contracts/build/contracts/ERC20.json').abi;
 const IUniswapV3PoolABI = require('@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json').abi;
 
@@ -23,8 +25,8 @@ const token0 = new Token(CHAIN_ID, "0x788EFfd91D0d6323d185233A2623DF6282cB409F",
 const token1 = new Token(CHAIN_ID, "0x4084aA276Cf072C945A5a9803e1395f5B1098D0f", 18, 'TKN1', 'Token1');
 
 // 初始化 Provider 和 Signer
-const provider = new ethers.providers.JsonRpcProvider(PROVIDER_URL);
-const signer = new ethers.Wallet(deployer.private, provider);
+const provider = new JsonRpcProvider(PROVIDER_URL);
+const signer = new Wallet(process.env.PRIVATE_KEY!, provider);
 
 // 計算當前池地址
 const currentPoolAddress = computePoolAddress({
@@ -47,8 +49,8 @@ interface PoolInfo {
     token1: string;
     fee: number;
     tickSpacing: number;
-    sqrtPriceX96: ethers.BigNumber;
-    liquidity: ethers.BigNumber;
+    sqrtPriceX96: ethers.BigNumberish;
+    liquidity: ethers.BigNumberish;
     tick: number;
 }
 
@@ -57,7 +59,7 @@ interface PoolInfo {
  * @param tokenAddress 代幣地址
  * @param amount 批准金額
  */
-async function approveToken(tokenAddress: string, amount: BigNumber): Promise<void> {
+async function approveToken(tokenAddress: string, amount: BigNumberish): Promise<void> {
     const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
     const tx = await tokenContract.approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, amount);
     console.log(`Approving ${tokenAddress}...`);
@@ -152,11 +154,11 @@ async function getPositionIds(): Promise<number[]> {
         provider
     );
     
-    const balance: number = await positionContract.balanceOf(deployer.address);
+    const balance: number = await positionContract.balanceOf(process.env.ADDRESS!);
     const tokenIds: number[] = [];
     
     for (let i = 0; i < balance; i++) {
-        const tokenId = await positionContract.tokenOfOwnerByIndex(deployer.address, i);
+        const tokenId = await positionContract.tokenOfOwnerByIndex(process.env.ADDRESS!, i);
         tokenIds.push(tokenId);
     }
     
@@ -188,7 +190,7 @@ async function addLiquidity(positionId: number): Promise<TransactionState> {
         data: calldata,
         to: NONFUNGIBLE_POSITION_MANAGER_ADDRESS,
         value,
-        from: deployer.address,
+        from: process.env.ADDRESS!,
         maxFeePerGas: MAX_FEE_PER_GAS,
         maxPriorityFeePerGas: MAX_PRIORITY_FEE_PER_GAS,
         gasLimit: 1000000,
@@ -216,9 +218,10 @@ async function addLiquidity(positionId: number): Promise<TransactionState> {
 async function main() {
     try {
         // 批准代幣
+        
         await Promise.all([
-            approveToken(token0.address, ethers.utils.parseUnits("500000000", 18)),
-            approveToken(token1.address, ethers.utils.parseUnits("500000000", 18))
+            approveToken(token0.address, parseUnits("500000000", 18)),
+            approveToken(token1.address, parseUnits("500000000", 18))
         ]);
 
         // 獲取位置 ID
