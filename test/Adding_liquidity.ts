@@ -12,8 +12,8 @@ const CHAIN_ID = 84532;
 const PROVIDER_URL = "https://sepolia.base.org";
 const NONFUNGIBLE_POSITION_MANAGER_ADDRESS = "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2";
 const POOL_FACTORY_ADDRESS = "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24";
-const MAX_FEE_PER_GAS = '300000';
-const MAX_PRIORITY_FEE_PER_GAS = '300000';
+const MAX_FEE_PER_GAS = '3000000';
+const MAX_PRIORITY_FEE_PER_GAS = '3000000';
 
 // ABI 定義
 const NONFUNGIBLE_POSITION_MANAGER_ABI = require('@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json').abi;
@@ -23,6 +23,8 @@ const IUniswapV3PoolABI = require('@uniswap/v3-core/artifacts/contracts/interfac
 // Token 配置
 const token0 = new Token(CHAIN_ID, "0x788EFfd91D0d6323d185233A2623DF6282cB409F", 18, 'TKN0', 'Token0');
 const token1 = new Token(CHAIN_ID, "0x4084aA276Cf072C945A5a9803e1395f5B1098D0f", 18, 'TKN1', 'Token1');
+const APPROVETOKENAMOUNT = parseUnits("500000000", 18);
+const ADDLIQUIDITYAMOUNT = 1000000
 
 // 初始化 Provider 和 Signer
 const provider = new JsonRpcProvider(PROVIDER_URL);
@@ -124,6 +126,7 @@ async function constructPosition(
         poolInfo.liquidity.toString(),
         poolInfo.tick
     );
+    
 
     const tickLower = priceRange
         ? nearestUsableTick(priceRange.lowerTick, poolInfo.tickSpacing)
@@ -143,27 +146,7 @@ async function constructPosition(
     });
 }
 
-/**
- * 獲取用戶的所有位置 ID
- * @returns 位置 ID 數組
- */
-async function getPositionIds(): Promise<number[]> {
-    const positionContract = new ethers.Contract(
-        NONFUNGIBLE_POSITION_MANAGER_ADDRESS,
-        NONFUNGIBLE_POSITION_MANAGER_ABI,
-        provider
-    );
-    
-    const balance: number = await positionContract.balanceOf(process.env.ADDRESS!);
-    const tokenIds: number[] = [];
-    
-    for (let i = 0; i < balance; i++) {
-        const tokenId = await positionContract.tokenOfOwnerByIndex(process.env.ADDRESS!, i);
-        tokenIds.push(tokenId);
-    }
-    
-    return tokenIds;
-}
+
 
 /**
  * 增加指定位置的流動性
@@ -171,8 +154,8 @@ async function getPositionIds(): Promise<number[]> {
  */
 async function addLiquidity(positionId: number): Promise<TransactionState> {
     const positionToIncrease = await constructPosition(
-        CurrencyAmount.fromRawAmount(token0, fromReadableAmount(1000000, token0.decimals)),
-        CurrencyAmount.fromRawAmount(token1, fromReadableAmount(10000000, token1.decimals))
+        CurrencyAmount.fromRawAmount(token0, fromReadableAmount(ADDLIQUIDITYAMOUNT, token0.decimals)),
+        CurrencyAmount.fromRawAmount(token1, fromReadableAmount(ADDLIQUIDITYAMOUNT, token1.decimals))
     );
 
     const addLiquidityOptions: AddLiquidityOptions = {
@@ -212,31 +195,86 @@ async function addLiquidity(positionId: number): Promise<TransactionState> {
     }
 }
 
+
+/**
+ * 獲取用戶的所有位置 ID
+ * @returns 位置 ID 數組
+ */
+async function getPositionIds(): Promise<number[]> {
+    const positionContract = new ethers.Contract(
+        NONFUNGIBLE_POSITION_MANAGER_ADDRESS,
+        NONFUNGIBLE_POSITION_MANAGER_ABI,
+        provider
+    );
+    
+    const balance: number = await positionContract.balanceOf(process.env.ADDRESS!);
+    const tokenIds: number[] = [];
+    
+    for (let i = 0; i < balance; i++) {
+        const tokenId = await positionContract.tokenOfOwnerByIndex(process.env.ADDRESS!, i);
+        tokenIds.push(tokenId);
+    }
+    
+    return tokenIds;
+}
+
+/**
+ * 獲取用戶的所有位置 ID，並篩選出 fee 為 POOL_FEE 的 tokenId
+ * @returns 符合條件的 tokenId 陣列
+ */
+async function getFilteredPositionIds(): Promise<number[]> {
+    const positionContract = new ethers.Contract(
+        NONFUNGIBLE_POSITION_MANAGER_ADDRESS,
+        NONFUNGIBLE_POSITION_MANAGER_ABI,
+        provider
+    );
+
+    const positionIds = await getPositionIds(); // 先獲取所有 Position IDs
+    const filteredTokenIds: number[] = [];
+
+    for (const tokenId of positionIds) {
+        const position = await positionContract.positions(tokenId);
+        if (position.fee.toString() === POOL_FEE.toString()) {
+            filteredTokenIds.push(Number(tokenId));
+        }
+    }
+
+    return filteredTokenIds;
+}
+
+
+
+
 /**
  * 主執行函數
  */
 async function main() {
-    try {
-        // 批准代幣
+   
         
+       
+        // 批准代幣
         await Promise.all([
-            approveToken(token0.address, parseUnits("500000000", 18)),
-            approveToken(token1.address, parseUnits("500000000", 18))
+            approveToken(token0.address, APPROVETOKENAMOUNT),
+            approveToken(token1.address, APPROVETOKENAMOUNT)
         ]);
 
-        // 獲取位置 ID
-        const tokenIds = await getPositionIds();
-        console.log("Position IDs fetched:", tokenIds);
-
-        // 增加流動性（使用第3個位置作為示例）
-        if (tokenIds.length > 2) {
-            await addLiquidity(tokenIds[2]);
-        } else {
-            console.log("Not enough positions available");
+        try {
+            const tokenIds = await getFilteredPositionIds(); // 獲取符合條件的 token IDs
+            console.log("Filtered Token IDs:", tokenIds);
+    
+            if (tokenIds.length === 0) {
+                console.log("No matching positions found.");
+                return;
+            }
+    
+            for (const tokenId of tokenIds) {
+                const result = await addLiquidity(tokenId); // 傳入單個 tokenId
+                console.log(`Added liquidity for tokenId ${tokenId}:`, result);
+            }
+        } catch (error) {
+            console.error("Error:", error);
         }
-    } catch (error) {
-        console.error("Error in main execution:", error);
     }
-}
+
 
 main();
