@@ -62,8 +62,25 @@ interface PoolInfo {
  * @param amount 批准金額
  */
 async function approveToken(tokenAddress: string, amount: BigNumberish): Promise<void> {
+    const nonce = await provider.getTransactionCount(signer.address, "latest");
+    console.log("Current Nonce:", nonce);
+    const feeData = await provider.getFeeData();
+    console.log("Current Fee Data:", feeData);
+   
     const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-    const tx = await tokenContract.approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, amount);
+    // Get the current gas price from the network
+    // const gasPrice = await provider.send('eth_gasPrice', []);
+    // const increasedGasPrice = BigInt(gasPrice.toString()) * BigInt(10);
+    // console.log(typeof increasedGasPrice, increasedGasPrice);
+    // 乘以 3 倍來確保交易費足夠高
+    const maxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * 3n : ethers.parseUnits("3", "gwei");
+    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * 2n : ethers.parseUnits("2", "gwei");
+ 
+    const tx = await tokenContract.approve(NONFUNGIBLE_POSITION_MANAGER_ADDRESS, amount,{
+        // nonce: nonce, // 強制替換舊交易
+        maxFeePerGas: maxFeePerGas, // 2 倍保證成功
+        maxPriorityFeePerGas: maxPriorityFeePerGas,
+    });
     console.log(`Approving ${tokenAddress}...`);
     await tx.wait();
     console.log(`Approval for ${tokenAddress} completed`);
@@ -249,6 +266,25 @@ async function getFilteredPositionIds(): Promise<number[]> {
  * 主執行函數
  */
 async function main() {
+    // const nonce = await provider.getTransactionCount(signer.address, "latest");
+    // console.log("Current Nonce:", nonce);
+    // const feeData = await provider.getFeeData();
+    // console.log("Current Fee Data:", feeData);
+    // const maxFeePerGas = feeData.maxFeePerGas ? feeData.maxFeePerGas * 3n : ethers.parseUnits("3", "gwei");
+    // const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas * 2n : ethers.parseUnits("2", "gwei");
+ 
+    // const cancelTx = await signer.sendTransaction({
+    //     to: signer.address, // 發送 0 ETH 給自己
+    //     value: 0,
+    //     gasLimit: 21000,
+    //     nonce: nonce, // 使用相同 nonce
+    //     maxFeePerGas: maxFeePerGas,
+    //     maxPriorityFeePerGas: maxPriorityFeePerGas,
+    // });
+    // console.log("Canceling transaction...");
+    // await cancelTx.wait();
+    // console.log("Transaction canceled!");
+    // extensions()
    
         
        
