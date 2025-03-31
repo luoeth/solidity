@@ -59,3 +59,13 @@ Transaction successful TransactionReceipt {
   from: '0x3F3140ceb82D0C490649c066FFf6AE07A75df447',
 ...
 ```
+
+# 4️⃣ Adding_liquidity （增加Position流動性）
+主流程:批准代幣(approveToken) >
+## 主要參數
+- POOL_FEE:填入建立流動性池時的手續費
+- APPROVETOKENAMOUNT: 授權要增加的流動性數量
+- ADDLIQUIDITYAMOUNT: 要增加的數量
+
+  
+
